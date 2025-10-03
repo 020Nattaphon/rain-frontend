@@ -1,11 +1,45 @@
-// Dashboard.jsx
-import React from "react";
+import React, { useState } from "react";
 import { Line } from "react-chartjs-2";
 import "chart.js/auto";
+import QRCode from "qrcode.react";
 
 function Dashboard({ data }) {
+  const [subscribed, setSubscribed] = useState(false);
+
   if (!data || data.length === 0) {
     return <p style={{ textAlign: "center" }}>⏳ กำลังโหลดข้อมูล...</p>;
+  }
+
+  // ✅ ฟังก์ชันเปิดการแจ้งเตือน
+  async function enableNotification() {
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: "<VAPID_PUBLIC_KEY>", // 👉 เอา Public Key จาก backend มาใส่
+      });
+
+      await fetch("https://rain-backend.onrender.com/subscribe", {
+        method: "POST",
+        body: JSON.stringify(subscription),
+        headers: { "Content-Type": "application/json" },
+      });
+
+      setSubscribed(true);
+      alert("✅ เปิดการแจ้งเตือนแล้ว!");
+    }
+  }
+
+  // ✅ ฟังก์ชันปิดการแจ้งเตือน
+  async function disableNotification() {
+    const registration = await navigator.serviceWorker.ready;
+    const subs = await registration.pushManager.getSubscription();
+    if (subs) {
+      await subs.unsubscribe();
+      setSubscribed(false);
+      alert("❌ ปิดการแจ้งเตือนแล้ว");
+    }
   }
 
   // ✅ นับจำนวนฝนตกต่อวัน
@@ -77,7 +111,40 @@ function Dashboard({ data }) {
 
   return (
     <div style={{ padding: "20px", fontFamily: "Arial" }}>
-      <h2>🌦 Rain Dashboard</h2>
+      <h2>🌦 Rain Monitoring Dashboard</h2>
+
+      {/* ปุ่มแจ้งเตือน */}
+      <div style={{ textAlign: "center", margin: "20px 0" }}>
+        {!subscribed ? (
+          <button
+            onClick={enableNotification}
+            style={{
+              background: "green",
+              color: "white",
+              padding: "10px 20px",
+              borderRadius: "5px",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            ✅ เปิดการแจ้งเตือน
+          </button>
+        ) : (
+          <button
+            onClick={disableNotification}
+            style={{
+              background: "red",
+              color: "white",
+              padding: "10px 20px",
+              borderRadius: "5px",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            ❌ ปิดการแจ้งเตือน
+          </button>
+        )}
+      </div>
 
       {/* Layout แบบ Grid */}
       <div
@@ -192,6 +259,20 @@ function Dashboard({ data }) {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* QR Code */}
+      <div style={{ textAlign: "center", marginTop: "30px" }}>
+        <h3>📱 สแกน QR Code เพื่อเปิดบนมือถือ</h3>
+        <QRCode
+          value="https://rain-frontend.onrender.com"
+          size={200}
+          fgColor="#000000"
+          bgColor="#ffffff"
+          level="H"
+          includeMargin={true}
+        />
+        <p>สแกนเพื่อดู Dashboard และเปิดการแจ้งเตือน</p>
       </div>
     </div>
   );
