@@ -3,7 +3,6 @@ import { Line } from "react-chartjs-2";
 import "chart.js/auto";
 import { QRCodeCanvas } from "qrcode.react";
 
-
 function Dashboard({ data }) {
   const [subscribed, setSubscribed] = useState(false);
 
@@ -35,11 +34,11 @@ function Dashboard({ data }) {
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(
-        "BLFNImKUE83Iw9UEUz89d-47q_NBLRPpFRrgYibopelLAkc0dVRnnNw9BWuXkYjL9Fswxsr5o4smH2gi4pZ3qfE" // 👉 ใส่ VAPID_PUBLIC_KEY
+        process.env.REACT_APP_VAPID_PUBLIC_KEY // 👉 ใช้จาก .env
       ),
     });
 
-    await fetch("https://rain-backend.onrender.com/subscribe", {
+    await fetch(`${process.env.REACT_APP_API_BASE}/subscribe`, {
       method: "POST",
       body: JSON.stringify(subscription),
       headers: { "Content-Type": "application/json" },
@@ -56,7 +55,7 @@ function Dashboard({ data }) {
 
     if (subscription) {
       await subscription.unsubscribe();
-      await fetch("https://rain-backend.onrender.com/unsubscribe", {
+      await fetch(`${process.env.REACT_APP_API_BASE}/unsubscribe`, {
         method: "POST",
         body: JSON.stringify(subscription),
         headers: { "Content-Type": "application/json" },
@@ -289,7 +288,7 @@ function Dashboard({ data }) {
         </table>
       </div>
 
-    {/* QR Code */}
+      {/* QR Code */}
       <div style={{ textAlign: "center", marginTop: "30px" }}>
         <h3>📱 สแกน QR Code เพื่อเปิดบนมือถือ</h3>
         <QRCodeCanvas
