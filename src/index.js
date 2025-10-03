@@ -13,10 +13,11 @@ root.render(
 
 // ✅ Register Service Worker สำหรับ Push Notification
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/service-worker.js").then(() => {
-    console.log("✅ Service Worker Registered");
-  }).catch(err => {
-    console.error("❌ Service Worker Failed:", err);
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/service-worker.js")
+      .then((reg) => console.log("✅ Service Worker Registered:", reg))
+      .catch((err) => console.error("❌ Service Worker Error:", err));
   });
 }
 
@@ -24,3 +25,4 @@ if ("serviceWorker" in navigator) {
 // to log results (for example: reportWebVitals(console.log))
 // or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
 reportWebVitals();
+

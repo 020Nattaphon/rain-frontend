@@ -1,45 +1,74 @@
 import React, { useState } from "react";
 import { Line } from "react-chartjs-2";
 import "chart.js/auto";
-import QRCode from "qrcode.react";
+import { QRCode } from "qrcode.react";
 
 function Dashboard({ data }) {
   const [subscribed, setSubscribed] = useState(false);
 
-  if (!data || data.length === 0) {
-    return <p style={{ textAlign: "center" }}>⏳ กำลังโหลดข้อมูล...</p>;
+  // 🔑 Helper: แปลง VAPID Key จาก Base64 → Uint8Array
+  function urlBase64ToUint8Array(base64String) {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding)
+      .replace(/-/g, "+")
+      .replace(/_/g, "/");
+
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
   }
 
-  // ✅ ฟังก์ชันเปิดการแจ้งเตือน
-  async function enableNotification() {
+  // ✅ เปิดการแจ้งเตือน
+  async function subscribe() {
     const permission = await Notification.requestPermission();
-    if (permission === "granted") {
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: "<VAPID_PUBLIC_KEY>", // 👉 เอา Public Key จาก backend มาใส่
-      });
+    if (permission !== "granted") {
+      alert("❌ ไม่ได้รับอนุญาตแจ้งเตือน");
+      return;
+    }
 
-      await fetch("https://rain-backend.onrender.com/subscribe", {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(
+        "BLFNImKUE83Iw9UEUz89d-47q_NBLRPpFRrgYibopelLAkc0dVRnnNw9BWuXkYjL9Fswxsr5o4smH2gi4pZ3qfE" // 👉 ใส่ VAPID_PUBLIC_KEY
+      ),
+    });
+
+    await fetch("https://rain-backend.onrender.com/subscribe", {
+      method: "POST",
+      body: JSON.stringify(subscription),
+      headers: { "Content-Type": "application/json" },
+    });
+
+    alert("✅ เปิดการแจ้งเตือนแล้ว");
+    setSubscribed(true);
+  }
+
+  // ❌ ปิดการแจ้งเตือน
+  async function unsubscribe() {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+
+    if (subscription) {
+      await subscription.unsubscribe();
+      await fetch("https://rain-backend.onrender.com/unsubscribe", {
         method: "POST",
         body: JSON.stringify(subscription),
         headers: { "Content-Type": "application/json" },
       });
-
-      setSubscribed(true);
-      alert("✅ เปิดการแจ้งเตือนแล้ว!");
+      alert("🚫 ปิดการแจ้งเตือนแล้ว");
+    } else {
+      alert("ไม่ได้สมัครไว้");
     }
+    setSubscribed(false);
   }
 
-  // ✅ ฟังก์ชันปิดการแจ้งเตือน
-  async function disableNotification() {
-    const registration = await navigator.serviceWorker.ready;
-    const subs = await registration.pushManager.getSubscription();
-    if (subs) {
-      await subs.unsubscribe();
-      setSubscribed(false);
-      alert("❌ ปิดการแจ้งเตือนแล้ว");
-    }
+  if (!data || data.length === 0) {
+    return <p style={{ textAlign: "center" }}>⏳ กำลังโหลดข้อมูล...</p>;
   }
 
   // ✅ นับจำนวนฝนตกต่อวัน
@@ -95,7 +124,7 @@ function Dashboard({ data }) {
     avgHum: slot.entries > 0 ? (slot.humSum / slot.entries).toFixed(1) : "-",
   }));
 
-  // ✅ ข้อมูลกราฟ
+  // ✅ Data สำหรับกราฟ
   const chartData = {
     labels: Object.keys(rainCountByDay),
     datasets: [
@@ -114,34 +143,32 @@ function Dashboard({ data }) {
       <h2>🌦 Rain Monitoring Dashboard</h2>
 
       {/* ปุ่มแจ้งเตือน */}
-      <div style={{ textAlign: "center", margin: "20px 0" }}>
+      <div style={{ textAlign: "center", margin: "20px" }}>
         {!subscribed ? (
           <button
-            onClick={enableNotification}
+            onClick={subscribe}
             style={{
-              background: "green",
-              color: "white",
               padding: "10px 20px",
-              borderRadius: "5px",
+              background: "green",
+              color: "#fff",
               border: "none",
-              cursor: "pointer",
+              borderRadius: "5px",
             }}
           >
             ✅ เปิดการแจ้งเตือน
           </button>
         ) : (
           <button
-            onClick={disableNotification}
+            onClick={unsubscribe}
             style={{
-              background: "red",
-              color: "white",
               padding: "10px 20px",
-              borderRadius: "5px",
+              background: "red",
+              color: "#fff",
               border: "none",
-              cursor: "pointer",
+              borderRadius: "5px",
             }}
           >
-            ❌ ปิดการแจ้งเตือน
+            🚫 ปิดการแจ้งเตือน
           </button>
         )}
       </div>
