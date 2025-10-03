@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Line } from "react-chartjs-2";
 import "chart.js/auto";
-import { QRCode } from "qrcode.react";
+import { QRCodeCanvas } from "qrcode.react";
+
 
 function Dashboard({ data }) {
   const [subscribed, setSubscribed] = useState(false);
@@ -288,10 +289,10 @@ function Dashboard({ data }) {
         </table>
       </div>
 
-      {/* QR Code */}
+    {/* QR Code */}
       <div style={{ textAlign: "center", marginTop: "30px" }}>
         <h3>📱 สแกน QR Code เพื่อเปิดบนมือถือ</h3>
-        <QRCode
+        <QRCodeCanvas
           value="https://rain-frontend.onrender.com"
           size={200}
           fgColor="#000000"
