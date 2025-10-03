@@ -32,11 +32,11 @@ function Dashboard({ data }) {
 
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.subscribe({
-     userVisibleOnly: true,
-     applicationServerKey: urlBase64ToUint8Array(
-    process.env.REACT_APP_VAPID_PUBLIC_KEY // ✅ ดึงจาก .env
-     )
-      });
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(
+        process.env.REACT_APP_VAPID_PUBLIC_KEY // ✅ ใช้จาก .env
+      ),
+    });
 
     await fetch(`${process.env.REACT_APP_API_BASE}/subscribe`, {
       method: "POST",
@@ -94,7 +94,7 @@ function Dashboard({ data }) {
     }
   });
 
-  // ✅ สร้างช่วงเวลา 07:00–17:00 (10 ช่วง)
+  // ✅ สร้างช่วงเวลา 07:00–17:00
   const timeSlots = Array.from({ length: 10 }, (_, i) => ({
     label: `${7 + i}:00-${8 + i}:00`,
     count: 0,
@@ -173,7 +173,7 @@ function Dashboard({ data }) {
         )}
       </div>
 
-      {/* Layout แบบ Grid */}
+      {/* ตารางข้อมูล + การ์ดสรุป */}
       <div
         style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "20px" }}
       >
