@@ -32,11 +32,11 @@ function Dashboard({ data }) {
 
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(
-        process.env.REACT_APP_VAPID_PUBLIC_KEY // 👉 ใช้จาก .env
-      ),
-    });
+     userVisibleOnly: true,
+     applicationServerKey: urlBase64ToUint8Array(
+    process.env.REACT_APP_VAPID_PUBLIC_KEY // ✅ ดึงจาก .env
+     )
+      });
 
     await fetch(`${process.env.REACT_APP_API_BASE}/subscribe`, {
       method: "POST",
