@@ -10,7 +10,7 @@ function Dashboard({ initialData }) {
 
   const API_BASE = process.env.REACT_APP_API_BASE;
 
-  // 🔑 Helper: Base64 → Uint8Array
+  // Base64 → Uint8Array
   function urlBase64ToUint8Array(base64String) {
     const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
     const base64 = (base64String + padding)
@@ -21,7 +21,7 @@ function Dashboard({ initialData }) {
     return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
   }
 
-  // ✅ ตรวจสอบ subscription ตอนเข้าเว็บใหม่
+  // check subscription
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.ready.then(async (registration) => {
@@ -31,7 +31,7 @@ function Dashboard({ initialData }) {
     }
   }, []);
 
-  // ✅ โหลดข้อมูลจาก API ครั้งแรก
+  // fetch data
   useEffect(() => {
     fetch(`${API_BASE}/api/data`)
       .then((res) => res.json())
@@ -39,7 +39,7 @@ function Dashboard({ initialData }) {
       .catch((err) => console.error("❌ Fetch error:", err));
   }, [API_BASE]);
 
-  // ✅ Realtime ด้วย Socket.IO
+  // socket realtime
   useEffect(() => {
     const socket = io(API_BASE);
     socket.on("rain_alert", (newData) => {
@@ -48,7 +48,7 @@ function Dashboard({ initialData }) {
     return () => socket.disconnect();
   }, [API_BASE]);
 
-  // ✅ เปิดแจ้งเตือน
+  // subscribe
   async function subscribe() {
     const permission = await Notification.requestPermission();
     if (permission !== "granted") {
@@ -73,7 +73,7 @@ function Dashboard({ initialData }) {
     alert("✅ เปิดการแจ้งเตือนแล้ว");
   }
 
-  // ❌ ปิดแจ้งเตือน
+  // unsubscribe
   async function unsubscribe() {
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.getSubscription();
@@ -93,7 +93,7 @@ function Dashboard({ initialData }) {
     return <p style={{ textAlign: "center" }}>⏳ กำลังโหลดข้อมูล...</p>;
   }
 
-  // ✅ คำนวณสถิติ
+  // summary
   const rainCountByDay = {};
   const rainCountByMonth = {};
   const timeSlots = Array.from({ length: 10 }, (_, i) => ({
@@ -139,40 +139,38 @@ function Dashboard({ initialData }) {
       {
         label: "จำนวนครั้งที่ฝนตกต่อวัน",
         data: Object.values(rainCountByDay),
-        borderColor: "#00796b",
-        backgroundColor: "rgba(0, 121, 107, 0.2)",
-        tension: 0.2,
+        borderColor: "#009688",
+        backgroundColor: "rgba(0, 150, 136, 0.2)",
+        tension: 0.3,
       },
     ],
   };
 
-  // 🟢 RETURN อยู่ในฟังก์ชันแล้ว
+  // UI
   return (
     <div
       style={{
-        padding: "20px",
-        fontFamily: "Arial, sans-serif",
-        background: "#f0fdfd", // พื้นหลังโทนอ่อนฟ้า-เขียว
-        color: "#004d40",
+        padding: "30px",
+        fontFamily: "Segoe UI, sans-serif",
+        background: "linear-gradient(135deg, #e0f7fa, #f1f8e9)",
         minHeight: "100vh",
       }}
     >
-      <h2 style={{ textAlign: "center", color: "#00796b" }}>
-        🌦 Rain Monitoring Dashboard
-      </h2>
-
       {/* ปุ่มแจ้งเตือน */}
-      <div style={{ textAlign: "center", margin: "20px" }}>
+      <div style={{ textAlign: "center", marginBottom: "20px" }}>
         {!subscribed ? (
           <button
             onClick={subscribe}
             style={{
-              padding: "10px 20px",
-              background: "linear-gradient(45deg, #4caf50, #26a69a)",
+              padding: "12px 25px",
+              background: "linear-gradient(45deg, #26a69a, #66bb6a)",
               color: "#fff",
               border: "none",
-              borderRadius: "25px",
+              borderRadius: "30px",
+              fontSize: "15px",
+              fontWeight: "bold",
               cursor: "pointer",
+              boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
             }}
           >
             ✅ เปิดการแจ้งเตือน
@@ -181,12 +179,15 @@ function Dashboard({ initialData }) {
           <button
             onClick={unsubscribe}
             style={{
-              padding: "10px 20px",
-              background: "linear-gradient(45deg, #00897b, #43a047)",
+              padding: "12px 25px",
+              background: "linear-gradient(45deg, #ef5350, #e57373)",
               color: "#fff",
               border: "none",
-              borderRadius: "25px",
+              borderRadius: "30px",
+              fontSize: "15px",
+              fontWeight: "bold",
               cursor: "pointer",
+              boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
             }}
           >
             🚫 ปิดการแจ้งเตือน
@@ -194,114 +195,121 @@ function Dashboard({ initialData }) {
         )}
       </div>
 
-      {/* ตาราง + การ์ดสรุป */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "20px" }}>
-        {/* ตารางข้อมูล */}
+      {/* การ์ดสรุป */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "20px",
+          marginBottom: "30px",
+        }}
+      >
         <div
           style={{
-            background: "#ffffff",
-            borderRadius: "10px",
-            padding: "15px",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+            background: "#b2ebf2",
+            padding: "25px",
+            borderRadius: "15px",
+            textAlign: "center",
+            boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
           }}
         >
-          <h3 style={{ color: "#00796b" }}>📋 ข้อมูลล่าสุด</h3>
-          <div style={{ maxHeight: "300px", overflowY: "auto" }}>
-            <table
-              border="1"
-              cellPadding="5"
-              style={{
-                borderCollapse: "collapse",
-                width: "100%",
-                fontSize: "14px",
-                border: "1px solid #b2dfdb",
-              }}
-            >
-              <thead>
-                <tr style={{ backgroundColor: "#e0f7fa" }}>
-                  <th>เวลา</th>
-                  <th>อุณหภูมิ (°C)</th>
-                  <th>ความชื้น (%)</th>
-                  <th>ฝนตก</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.slice(0, 50).map((d, i) => (
-                  <tr key={i} style={{ backgroundColor: i % 2 ? "#f9f9f9" : "#ffffff" }}>
-                    <td>{d.timestamp ? new Date(d.timestamp).toLocaleString() : "N/A"}</td>
-                    <td>{d.temperature ?? "-"}</td>
-                    <td>{d.humidity ?? "-"}</td>
-                    <td>{d.rain_detected ? "✅" : "❌"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <h4 style={{ margin: 0, color: "#00695c" }}>🌧️ ฝนตกต่อวัน</h4>
+          <p style={{ fontSize: "28px", fontWeight: "bold", marginTop: "10px" }}>
+            {Object.values(rainCountByDay).slice(-1)[0] || 0} ครั้ง
+          </p>
         </div>
+        <div
+          style={{
+            background: "#c8e6c9",
+            padding: "25px",
+            borderRadius: "15px",
+            textAlign: "center",
+            boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+          }}
+        >
+          <h4 style={{ margin: 0, color: "#1b5e20" }}>📅 ฝนตกต่อเดือน</h4>
+          <p style={{ fontSize: "28px", fontWeight: "bold", marginTop: "10px" }}>
+            {Object.values(rainCountByMonth).slice(-1)[0] || 0} ครั้ง
+          </p>
+        </div>
+      </div>
 
-        {/* การ์ดสรุป */}
-        <div style={{ display: "grid", gridTemplateRows: "1fr 1fr", gap: "10px" }}>
-          <div
+      {/* ตารางข้อมูล */}
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: "15px",
+          padding: "20px",
+          marginBottom: "30px",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+        }}
+      >
+        <h3 style={{ color: "#009688", marginTop: 0 }}>📋 ข้อมูลล่าสุด</h3>
+        <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+          <table
             style={{
-              background: "#b2ebf2",
-              padding: "20px",
-              borderRadius: "10px",
-              textAlign: "center",
-              color: "#004d40",
+              width: "100%",
+              borderCollapse: "collapse",
+              fontSize: "14px",
             }}
           >
-            <h4>🌧️ ฝนตกต่อวัน</h4>
-            <p style={{ fontSize: "20px", fontWeight: "bold" }}>
-              {Object.values(rainCountByDay).slice(-1)[0] || 0} ครั้ง
-            </p>
-          </div>
-          <div
-            style={{
-              background: "#c8e6c9",
-              padding: "20px",
-              borderRadius: "10px",
-              textAlign: "center",
-              color: "#1b5e20",
-            }}
-          >
-            <h4>📅 ฝนตกต่อเดือน</h4>
-            <p style={{ fontSize: "20px", fontWeight: "bold" }}>
-              {Object.values(rainCountByMonth).slice(-1)[0] || 0} ครั้ง
-            </p>
-          </div>
+            <thead>
+              <tr style={{ backgroundColor: "#e0f2f1", color: "#004d40" }}>
+                <th style={{ padding: "10px" }}>เวลา</th>
+                <th>อุณหภูมิ (°C)</th>
+                <th>ความชื้น (%)</th>
+                <th>ฝนตก</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.slice(0, 30).map((d, i) => (
+                <tr
+                  key={i}
+                  style={{
+                    backgroundColor: i % 2 ? "#f9f9f9" : "#ffffff",
+                    textAlign: "center",
+                  }}
+                >
+                  <td>{d.timestamp ? new Date(d.timestamp).toLocaleString() : "N/A"}</td>
+                  <td>{d.temperature ?? "-"}</td>
+                  <td>{d.humidity ?? "-"}</td>
+                  <td>{d.rain_detected ? "✅" : "❌"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
       {/* กราฟ */}
-      <div style={{ marginTop: "30px" }}>
-        <h3 style={{ color: "#00796b" }}>📊 กราฟจำนวนครั้งที่ฝนตกต่อวัน</h3>
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: "15px",
+          padding: "20px",
+          marginBottom: "30px",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+        }}
+      >
+        <h3 style={{ color: "#009688", marginTop: 0 }}>📊 กราฟฝนตกต่อวัน</h3>
         <Line data={chartData} />
       </div>
 
       {/* ตารางช่วงเวลา */}
       <div
         style={{
-          marginTop: "30px",
-          background: "#ffffff",
-          borderRadius: "10px",
-          padding: "15px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+          background: "#fff",
+          borderRadius: "15px",
+          padding: "20px",
+          marginBottom: "30px",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
         }}
       >
-        <h3 style={{ color: "#00796b" }}>⏰ สรุปตามช่วงเวลา (07:00–17:00)</h3>
-        <table
-          border="1"
-          cellPadding="5"
-          style={{
-            borderCollapse: "collapse",
-            width: "100%",
-            fontSize: "14px",
-            border: "1px solid #b2dfdb",
-          }}
-        >
+        <h3 style={{ color: "#009688", marginTop: 0 }}>⏰ สรุปตามช่วงเวลา</h3>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
           <thead>
-            <tr style={{ backgroundColor: "#e0f7fa" }}>
-              <th>ช่วงเวลา</th>
+            <tr style={{ backgroundColor: "#e0f2f1", color: "#004d40" }}>
+              <th style={{ padding: "10px" }}>ช่วงเวลา</th>
               <th>จำนวนฝนตก (ครั้ง)</th>
               <th>อุณหภูมิเฉลี่ย (°C)</th>
               <th>ความชื้นเฉลี่ย (%)</th>
@@ -309,7 +317,13 @@ function Dashboard({ initialData }) {
           </thead>
           <tbody>
             {timeSlotSummary.map((slot, i) => (
-              <tr key={i} style={{ backgroundColor: i % 2 ? "#f9f9f9" : "#ffffff" }}>
+              <tr
+                key={i}
+                style={{
+                  backgroundColor: i % 2 ? "#f9f9f9" : "#ffffff",
+                  textAlign: "center",
+                }}
+              >
                 <td>{slot.label}</td>
                 <td>{slot.count}</td>
                 <td>{slot.avgTemp}</td>
@@ -321,17 +335,19 @@ function Dashboard({ initialData }) {
       </div>
 
       {/* QR Code */}
-      <div style={{ textAlign: "center", marginTop: "30px" }}>
-        <h3 style={{ color: "#00796b" }}>📱 สแกน QR Code เพื่อเปิดบนมือถือ</h3>
+      <div style={{ textAlign: "center" }}>
+        <h3 style={{ color: "#009688" }}>📱 เปิด Dashboard บนมือถือ</h3>
         <QRCodeCanvas
           value="https://rain-frontend.onrender.com"
-          size={200}
+          size={180}
           fgColor="#004d40"
           bgColor="#e0f2f1"
           level="H"
           includeMargin={true}
         />
-        <p>สแกนเพื่อดู Dashboard และเปิดการแจ้งเตือน</p>
+        <p style={{ fontSize: "13px", color: "#555" }}>
+          สแกนเพื่อดู Dashboard และเปิดการแจ้งเตือน
+        </p>
       </div>
     </div>
   );
