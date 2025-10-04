@@ -1,3 +1,4 @@
+// Dashboard.jsx
 import React, { useEffect, useState } from "react";
 import { Line } from "react-chartjs-2";
 import "chart.js/auto";
@@ -10,18 +11,17 @@ function Dashboard({ initialData }) {
 
   const API_BASE = process.env.REACT_APP_API_BASE;
 
-  // Base64 → Uint8Array
+  // 🔑 Helper: Base64 → Uint8Array
   function urlBase64ToUint8Array(base64String) {
     const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
     const base64 = (base64String + padding)
       .replace(/-/g, "+")
       .replace(/_/g, "/");
-
     const rawData = window.atob(base64);
     return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
   }
 
-  // check subscription
+  // ✅ ตรวจสอบการสมัคร Notification ตอนโหลดหน้า
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.ready.then(async (registration) => {
@@ -31,7 +31,7 @@ function Dashboard({ initialData }) {
     }
   }, []);
 
-  // fetch data
+  // ✅ โหลดข้อมูลครั้งแรกจาก API
   useEffect(() => {
     fetch(`${API_BASE}/api/data`)
       .then((res) => res.json())
@@ -39,7 +39,7 @@ function Dashboard({ initialData }) {
       .catch((err) => console.error("❌ Fetch error:", err));
   }, [API_BASE]);
 
-  // socket realtime
+  // ✅ Socket.IO realtime
   useEffect(() => {
     const socket = io(API_BASE);
     socket.on("rain_alert", (newData) => {
@@ -48,7 +48,7 @@ function Dashboard({ initialData }) {
     return () => socket.disconnect();
   }, [API_BASE]);
 
-  // subscribe
+  // ✅ สมัครแจ้งเตือน
   async function subscribe() {
     const permission = await Notification.requestPermission();
     if (permission !== "granted") {
@@ -62,18 +62,16 @@ function Dashboard({ initialData }) {
         process.env.REACT_APP_VAPID_PUBLIC_KEY
       ),
     });
-
     await fetch(`${API_BASE}/subscribe`, {
       method: "POST",
       body: JSON.stringify(subscription),
       headers: { "Content-Type": "application/json" },
     });
-
     setSubscribed(true);
     alert("✅ เปิดการแจ้งเตือนแล้ว");
   }
 
-  // unsubscribe
+  // ❌ ยกเลิกแจ้งเตือน
   async function unsubscribe() {
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.getSubscription();
@@ -93,7 +91,7 @@ function Dashboard({ initialData }) {
     return <p style={{ textAlign: "center" }}>⏳ กำลังโหลดข้อมูล...</p>;
   }
 
-  // summary
+  // ✅ Summary
   const rainCountByDay = {};
   const rainCountByMonth = {};
   const timeSlots = Array.from({ length: 10 }, (_, i) => ({
@@ -146,7 +144,6 @@ function Dashboard({ initialData }) {
     ],
   };
 
-  // UI
   return (
     <div
       style={{
@@ -270,7 +267,9 @@ function Dashboard({ initialData }) {
                     textAlign: "center",
                   }}
                 >
-                  <td>{d.timestamp ? new Date(d.timestamp).toLocaleString() : "N/A"}</td>
+                  <td>
+                    {d.timestamp ? new Date(d.timestamp).toLocaleString() : "N/A"}
+                  </td>
                   <td>{d.temperature ?? "-"}</td>
                   <td>{d.humidity ?? "-"}</td>
                   <td>{d.rain_detected ? "✅" : "❌"}</td>
@@ -306,7 +305,13 @@ function Dashboard({ initialData }) {
         }}
       >
         <h3 style={{ color: "#009688", marginTop: 0 }}>⏰ สรุปตามช่วงเวลา</h3>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            fontSize: "14px",
+          }}
+        >
           <thead>
             <tr style={{ backgroundColor: "#e0f2f1", color: "#004d40" }}>
               <th style={{ padding: "10px" }}>ช่วงเวลา</th>
