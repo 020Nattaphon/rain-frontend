@@ -10,25 +10,27 @@ function Dashboard({ initialData }) {
 
   const API_BASE = process.env.REACT_APP_API_BASE;
 
-  // Helper: แปลง Base64 → Uint8Array
   function urlBase64ToUint8Array(base64String) {
     const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const base64 = (base64String + padding)
+      .replace(/-/g, "+")
+      .replace(/_/g, "/");
+
     const rawData = window.atob(base64);
-    return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+    return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
   }
 
-  // ตรวจสอบ subscription ตอนโหลด
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.ready.then(async (registration) => {
-        const existing = await registration.pushManager.getSubscription();
-        setSubscribed(!!existing);
+        const existingSubscription = await registration.pushManager.getSubscription();
+        if (existingSubscription) {
+          setSubscribed(true);
+        }
       });
     }
   }, []);
 
-  // โหลดข้อมูลครั้งแรก
   useEffect(() => {
     fetch(`${API_BASE}/api/data`)
       .then((res) => res.json())
@@ -36,20 +38,23 @@ function Dashboard({ initialData }) {
       .catch((err) => console.error("❌ Fetch error:", err));
   }, [API_BASE]);
 
-  // Socket.IO เรียลไทม์
   useEffect(() => {
     const socket = io(API_BASE);
-    socket.on("rain_alert", (newData) => setData((prev) => [newData, ...prev]));
+    socket.on("rain_alert", (newData) => {
+      setData((prev) => [newData, ...prev]);
+    });
     return () => socket.disconnect();
   }, [API_BASE]);
 
-  // เปิดการแจ้งเตือน
   async function subscribe() {
     const permission = await Notification.requestPermission();
-    if (permission !== "granted") return alert("❌ ไม่อนุญาตแจ้งเตือน");
+    if (permission !== "granted") {
+      alert("❌ ไม่ได้รับอนุญาตแจ้งเตือน");
+      return;
+    }
 
-    const reg = await navigator.serviceWorker.ready;
-    const subscription = await reg.pushManager.subscribe({
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(
         process.env.REACT_APP_VAPID_PUBLIC_KEY
@@ -61,14 +66,15 @@ function Dashboard({ initialData }) {
       body: JSON.stringify(subscription),
       headers: { "Content-Type": "application/json" },
     });
+
     setSubscribed(true);
     alert("✅ เปิดการแจ้งเตือนแล้ว");
   }
 
-  // ปิดการแจ้งเตือน
   async function unsubscribe() {
-    const reg = await navigator.serviceWorker.ready;
-    const subscription = await reg.pushManager.getSubscription();
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+
     if (subscription) {
       await subscription.unsubscribe();
       await fetch(`${API_BASE}/unsubscribe`, {
@@ -76,39 +82,62 @@ function Dashboard({ initialData }) {
         body: JSON.stringify(subscription),
         headers: { "Content-Type": "application/json" },
       });
+      alert("🚫 ปิดการแจ้งเตือนแล้ว");
     }
     setSubscribed(false);
-    alert("🚫 ปิดการแจ้งเตือนแล้ว");
   }
 
   if (!data || data.length === 0) {
     return <p className="text-center">⏳ กำลังโหลดข้อมูล...</p>;
   }
 
-  // --- Data Summary ---
-  const rainByDay = {};
-  const rainByMonth = {};
-  data.forEach((d) => {
-    if (!d.timestamp) return;
-    const day = new Date(d.timestamp).toLocaleDateString();
-    const month = new Date(d.timestamp).toLocaleString("default", {
+  const rainCountByDay = {};
+  const rainCountByMonth = {};
+  const timeSlots = Array.from({ length: 10 }, (_, i) => ({
+    label: `${7 + i}:00-${8 + i}:00`,
+    count: 0,
+    tempSum: 0,
+    humSum: 0,
+    entries: 0,
+  }));
+
+  data.forEach((item) => {
+    if (!item.timestamp) return;
+    const day = new Date(item.timestamp).toLocaleDateString();
+    const month = new Date(item.timestamp).toLocaleString("default", {
       month: "long",
       year: "numeric",
     });
-    if (d.rain_detected) {
-      rainByDay[day] = (rainByDay[day] || 0) + 1;
-      rainByMonth[month] = (rainByMonth[month] || 0) + 1;
+
+    if (item.rain_detected) {
+      rainCountByDay[day] = (rainCountByDay[day] || 0) + 1;
+      rainCountByMonth[month] = (rainCountByMonth[month] || 0) + 1;
+    }
+
+    const hour = new Date(item.timestamp).getHours();
+    if (hour >= 7 && hour < 17) {
+      const slotIndex = hour - 7;
+      if (item.rain_detected) timeSlots[slotIndex].count++;
+      timeSlots[slotIndex].tempSum += item.temperature || 0;
+      timeSlots[slotIndex].humSum += item.humidity || 0;
+      timeSlots[slotIndex].entries++;
     }
   });
 
+  const timeSlotSummary = timeSlots.map((slot) => ({
+    ...slot,
+    avgTemp: slot.entries > 0 ? (slot.tempSum / slot.entries).toFixed(1) : "-",
+    avgHum: slot.entries > 0 ? (slot.humSum / slot.entries).toFixed(1) : "-",
+  }));
+
   const chartData = {
-    labels: Object.keys(rainByDay),
+    labels: Object.keys(rainCountByDay),
     datasets: [
       {
         label: "จำนวนครั้งที่ฝนตกต่อวัน",
-        data: Object.values(rainByDay),
+        data: Object.values(rainCountByDay),
         borderColor: "#2563eb",
-        backgroundColor: "rgba(37,99,235,0.2)",
+        backgroundColor: "rgba(37, 99, 235, 0.3)",
         tension: 0.3,
       },
     ],
@@ -116,50 +145,52 @@ function Dashboard({ initialData }) {
 
   return (
     <div className="p-6 font-sans bg-gray-50 min-h-screen">
-      <h2 className="text-2xl font-bold text-center text-blue-600 mb-6">
+      <h2 className="text-3xl font-bold text-center mb-6 text-blue-700">
         🌦 Rain Monitoring Dashboard
       </h2>
 
-      {/* ปุ่มแจ้งเตือน */}
       <div className="flex justify-center mb-6">
         {!subscribed ? (
           <button
             onClick={subscribe}
-            className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow-md"
+            className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow"
           >
             ✅ เปิดการแจ้งเตือน
           </button>
         ) : (
           <button
             onClick={unsubscribe}
-            className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-md"
+            className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow"
           >
             🚫 ปิดการแจ้งเตือน
           </button>
         )}
       </div>
 
-      {/* Layout: ตาราง + การ์ด */}
       <div className="grid md:grid-cols-3 gap-6">
         {/* ตารางข้อมูล */}
-        <div className="md:col-span-2 bg-white shadow-md rounded-lg p-4 overflow-y-auto max-h-[350px]">
+        <div className="md:col-span-2 bg-white rounded-xl shadow p-4 overflow-x-auto">
           <h3 className="font-semibold mb-3">📋 ข้อมูลล่าสุด</h3>
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="p-2 border">เวลา</th>
-                <th className="p-2 border">อุณหภูมิ (°C)</th>
-                <th className="p-2 border">ความชื้น (%)</th>
-                <th className="p-2 border">ฝนตก</th>
+          <table className="table-auto w-full text-sm border-collapse">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="p-2">เวลา</th>
+                <th className="p-2">อุณหภูมิ (°C)</th>
+                <th className="p-2">ความชื้น (%)</th>
+                <th className="p-2">ฝนตก</th>
               </tr>
             </thead>
             <tbody>
               {data.slice(0, 50).map((d, i) => (
-                <tr key={i} className="text-center border-b">
-                  <td className="p-2">{d.timestamp ? new Date(d.timestamp).toLocaleString() : "N/A"}</td>
-                  <td>{d.temperature ?? "-"}</td>
-                  <td>{d.humidity ?? "-"}</td>
-                  <td>{d.rain_detected ? "✅" : "❌"}</td>
+                <tr key={i} className="border-t text-center">
+                  <td className="p-2">
+                    {d.timestamp
+                      ? new Date(d.timestamp).toLocaleString()
+                      : "N/A"}
+                  </td>
+                  <td className="p-2">{d.temperature ?? "-"}</td>
+                  <td className="p-2">{d.humidity ?? "-"}</td>
+                  <td className="p-2">{d.rain_detected ? "✅" : "❌"}</td>
                 </tr>
               ))}
             </tbody>
@@ -167,40 +198,69 @@ function Dashboard({ initialData }) {
         </div>
 
         {/* การ์ดสรุป */}
-        <div className="flex flex-col gap-4">
-          <div className="bg-blue-100 p-4 rounded-lg shadow text-center">
-            <h4 className="font-medium">🌧️ ฝนตกต่อวัน</h4>
-            <p className="text-xl font-bold text-blue-600">
-              {Object.values(rainByDay).slice(-1)[0] || 0} ครั้ง
+        <div className="grid gap-4">
+          <div className="bg-blue-100 p-5 rounded-xl shadow text-center">
+            <h4 className="font-semibold">🌧️ ฝนตกต่อวัน</h4>
+            <p className="text-xl font-bold text-blue-700">
+              {Object.values(rainCountByDay).slice(-1)[0] || 0} ครั้ง
             </p>
           </div>
-          <div className="bg-yellow-100 p-4 rounded-lg shadow text-center">
-            <h4 className="font-medium">📅 ฝนตกต่อเดือน</h4>
-            <p className="text-xl font-bold text-yellow-700">
-              {Object.values(rainByMonth).slice(-1)[0] || 0} ครั้ง
+          <div className="bg-orange-100 p-5 rounded-xl shadow text-center">
+            <h4 className="font-semibold">📅 ฝนตกต่อเดือน</h4>
+            <p className="text-xl font-bold text-orange-700">
+              {Object.values(rainCountByMonth).slice(-1)[0] || 0} ครั้ง
             </p>
           </div>
         </div>
       </div>
 
       {/* กราฟ */}
-      <div className="bg-white mt-6 p-4 shadow rounded-lg">
-        <h3 className="font-semibold mb-3">📊 กราฟจำนวนครั้งที่ฝนตกต่อวัน</h3>
+      <div className="mt-8 bg-white p-5 rounded-xl shadow">
+        <h3 className="font-semibold mb-4">📊 กราฟจำนวนครั้งที่ฝนตกต่อวัน</h3>
         <Line data={chartData} />
       </div>
 
+      {/* ตารางช่วงเวลา */}
+      <div className="mt-8 bg-white p-5 rounded-xl shadow overflow-x-auto">
+        <h3 className="font-semibold mb-4">⏰ สรุปตามช่วงเวลา (07:00–17:00)</h3>
+        <table className="table-auto w-full text-sm border-collapse">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="p-2">ช่วงเวลา</th>
+              <th className="p-2">จำนวนฝนตก (ครั้ง)</th>
+              <th className="p-2">อุณหภูมิเฉลี่ย (°C)</th>
+              <th className="p-2">ความชื้นเฉลี่ย (%)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {timeSlotSummary.map((slot, i) => (
+              <tr key={i} className="border-t text-center">
+                <td className="p-2">{slot.label}</td>
+                <td className="p-2">{slot.count}</td>
+                <td className="p-2">{slot.avgTemp}</td>
+                <td className="p-2">{slot.avgHum}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
       {/* QR Code */}
-      <div className="text-center mt-8">
+      <div className="text-center mt-10">
         <h3 className="font-semibold mb-3">📱 สแกน QR Code เพื่อเปิดบนมือถือ</h3>
-        <QRCodeCanvas
-          value="https://rain-frontend.onrender.com"
-          size={180}
-          fgColor="#000"
-          bgColor="#fff"
-          level="H"
-          includeMargin={true}
-        />
-        <p className="mt-2 text-gray-600">สแกนเพื่อดู Dashboard และเปิดการแจ้งเตือน</p>
+        <div className="inline-block bg-white p-4 rounded-xl shadow">
+          <QRCodeCanvas
+            value="https://rain-frontend.onrender.com"
+            size={200}
+            fgColor="#000000"
+            bgColor="#ffffff"
+            level="H"
+            includeMargin={true}
+          />
+        </div>
+        <p className="mt-2 text-gray-600">
+          สแกนเพื่อดู Dashboard และเปิดการแจ้งเตือน
+        </p>
       </div>
     </div>
   );
