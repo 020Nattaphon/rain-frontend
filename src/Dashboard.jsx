@@ -1,3 +1,4 @@
+// src/Dashboard.jsx
 import React, { useEffect, useState } from "react";
 import { Line } from "react-chartjs-2";
 import "chart.js/auto";
@@ -10,6 +11,7 @@ function Dashboard({ initialData }) {
 
   const API_BASE = process.env.REACT_APP_API_BASE;
 
+  // 🔑 Helper: Base64 → Uint8Array
   function urlBase64ToUint8Array(base64String) {
     const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
     const base64 = (base64String + padding)
@@ -17,20 +19,20 @@ function Dashboard({ initialData }) {
       .replace(/_/g, "/");
 
     const rawData = window.atob(base64);
-    return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+    return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
   }
 
+  // ✅ ตรวจสอบ subscription ตอนเข้าเว็บใหม่
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.ready.then(async (registration) => {
-        const existingSubscription = await registration.pushManager.getSubscription();
-        if (existingSubscription) {
-          setSubscribed(true);
-        }
+        const existing = await registration.pushManager.getSubscription();
+        if (existing) setSubscribed(true);
       });
     }
   }, []);
 
+  // ✅ โหลดข้อมูลจาก API ครั้งแรก
   useEffect(() => {
     fetch(`${API_BASE}/api/data`)
       .then((res) => res.json())
@@ -38,6 +40,7 @@ function Dashboard({ initialData }) {
       .catch((err) => console.error("❌ Fetch error:", err));
   }, [API_BASE]);
 
+  // ✅ Realtime ด้วย Socket.IO
   useEffect(() => {
     const socket = io(API_BASE);
     socket.on("rain_alert", (newData) => {
@@ -46,13 +49,13 @@ function Dashboard({ initialData }) {
     return () => socket.disconnect();
   }, [API_BASE]);
 
+  // ✅ เปิดแจ้งเตือน
   async function subscribe() {
     const permission = await Notification.requestPermission();
     if (permission !== "granted") {
       alert("❌ ไม่ได้รับอนุญาตแจ้งเตือน");
       return;
     }
-
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
@@ -71,10 +74,10 @@ function Dashboard({ initialData }) {
     alert("✅ เปิดการแจ้งเตือนแล้ว");
   }
 
+  // ❌ ปิดแจ้งเตือน
   async function unsubscribe() {
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.getSubscription();
-
     if (subscription) {
       await subscription.unsubscribe();
       await fetch(`${API_BASE}/unsubscribe`, {
@@ -88,9 +91,10 @@ function Dashboard({ initialData }) {
   }
 
   if (!data || data.length === 0) {
-    return <p className="text-center">⏳ กำลังโหลดข้อมูล...</p>;
+    return <p style={{ textAlign: "center" }}>⏳ กำลังโหลดข้อมูล...</p>;
   }
 
+  // ✅ คำนวณสถิติ
   const rainCountByDay = {};
   const rainCountByMonth = {};
   const timeSlots = Array.from({ length: 10 }, (_, i) => ({
@@ -136,78 +140,106 @@ function Dashboard({ initialData }) {
       {
         label: "จำนวนครั้งที่ฝนตกต่อวัน",
         data: Object.values(rainCountByDay),
-        borderColor: "#2563eb",
-        backgroundColor: "rgba(37, 99, 235, 0.3)",
-        tension: 0.3,
+        borderColor: "blue",
+        backgroundColor: "rgba(0, 0, 255, 0.2)",
+        tension: 0.2,
       },
     ],
   };
 
   return (
-    <div className="p-6 font-sans bg-gray-50 min-h-screen">
-      <h2 className="text-3xl font-bold text-center mb-6 text-blue-700">
-        🌦 Rain Monitoring Dashboard
-      </h2>
+    <div style={{ padding: "20px", fontFamily: "Arial" }}>
+      <h2 style={{ textAlign: "center" }}>🌦 Rain Monitoring Dashboard</h2>
 
-      <div className="flex justify-center mb-6">
+      {/* ปุ่มแจ้งเตือน */}
+      <div style={{ textAlign: "center", margin: "20px" }}>
         {!subscribed ? (
           <button
             onClick={subscribe}
-            className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow"
+            style={{
+              padding: "10px 20px",
+              background: "green",
+              color: "#fff",
+              border: "none",
+              borderRadius: "5px",
+            }}
           >
             ✅ เปิดการแจ้งเตือน
           </button>
         ) : (
           <button
             onClick={unsubscribe}
-            className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow"
+            style={{
+              padding: "10px 20px",
+              background: "red",
+              color: "#fff",
+              border: "none",
+              borderRadius: "5px",
+            }}
           >
             🚫 ปิดการแจ้งเตือน
           </button>
         )}
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
+      {/* ตาราง + สรุป */}
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "20px" }}>
         {/* ตารางข้อมูล */}
-        <div className="md:col-span-2 bg-white rounded-xl shadow p-4 overflow-x-auto">
-          <h3 className="font-semibold mb-3">📋 ข้อมูลล่าสุด</h3>
-          <table className="table-auto w-full text-sm border-collapse">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="p-2">เวลา</th>
-                <th className="p-2">อุณหภูมิ (°C)</th>
-                <th className="p-2">ความชื้น (%)</th>
-                <th className="p-2">ฝนตก</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.slice(0, 50).map((d, i) => (
-                <tr key={i} className="border-t text-center">
-                  <td className="p-2">
-                    {d.timestamp
-                      ? new Date(d.timestamp).toLocaleString()
-                      : "N/A"}
-                  </td>
-                  <td className="p-2">{d.temperature ?? "-"}</td>
-                  <td className="p-2">{d.humidity ?? "-"}</td>
-                  <td className="p-2">{d.rain_detected ? "✅" : "❌"}</td>
+        <div>
+          <h3>📋 ข้อมูลล่าสุด</h3>
+          <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+            <table
+              border="1"
+              cellPadding="5"
+              style={{ borderCollapse: "collapse", width: "100%", fontSize: "14px" }}
+            >
+              <thead>
+                <tr style={{ backgroundColor: "#f0f0f0" }}>
+                  <th>เวลา</th>
+                  <th>อุณหภูมิ (°C)</th>
+                  <th>ความชื้น (%)</th>
+                  <th>ฝนตก</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {data.slice(0, 50).map((d, i) => (
+                  <tr key={i}>
+                    <td>{d.timestamp ? new Date(d.timestamp).toLocaleString() : "N/A"}</td>
+                    <td>{d.temperature ?? "-"}</td>
+                    <td>{d.humidity ?? "-"}</td>
+                    <td>{d.rain_detected ? "✅" : "❌"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* การ์ดสรุป */}
-        <div className="grid gap-4">
-          <div className="bg-blue-100 p-5 rounded-xl shadow text-center">
-            <h4 className="font-semibold">🌧️ ฝนตกต่อวัน</h4>
-            <p className="text-xl font-bold text-blue-700">
+        <div style={{ display: "grid", gridTemplateRows: "1fr 1fr", gap: "10px" }}>
+          <div
+            style={{
+              background: "#e3f2fd",
+              padding: "20px",
+              borderRadius: "10px",
+              textAlign: "center",
+            }}
+          >
+            <h4>🌧️ ฝนตกต่อวัน</h4>
+            <p style={{ fontSize: "20px", fontWeight: "bold" }}>
               {Object.values(rainCountByDay).slice(-1)[0] || 0} ครั้ง
             </p>
           </div>
-          <div className="bg-orange-100 p-5 rounded-xl shadow text-center">
-            <h4 className="font-semibold">📅 ฝนตกต่อเดือน</h4>
-            <p className="text-xl font-bold text-orange-700">
+          <div
+            style={{
+              background: "#ffe0b2",
+              padding: "20px",
+              borderRadius: "10px",
+              textAlign: "center",
+            }}
+          >
+            <h4>📅 ฝนตกต่อเดือน</h4>
+            <p style={{ fontSize: "20px", fontWeight: "bold" }}>
               {Object.values(rainCountByMonth).slice(-1)[0] || 0} ครั้ง
             </p>
           </div>
@@ -215,30 +247,34 @@ function Dashboard({ initialData }) {
       </div>
 
       {/* กราฟ */}
-      <div className="mt-8 bg-white p-5 rounded-xl shadow">
-        <h3 className="font-semibold mb-4">📊 กราฟจำนวนครั้งที่ฝนตกต่อวัน</h3>
+      <div style={{ marginTop: "30px" }}>
+        <h3>📊 กราฟจำนวนครั้งที่ฝนตกต่อวัน</h3>
         <Line data={chartData} />
       </div>
 
       {/* ตารางช่วงเวลา */}
-      <div className="mt-8 bg-white p-5 rounded-xl shadow overflow-x-auto">
-        <h3 className="font-semibold mb-4">⏰ สรุปตามช่วงเวลา (07:00–17:00)</h3>
-        <table className="table-auto w-full text-sm border-collapse">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="p-2">ช่วงเวลา</th>
-              <th className="p-2">จำนวนฝนตก (ครั้ง)</th>
-              <th className="p-2">อุณหภูมิเฉลี่ย (°C)</th>
-              <th className="p-2">ความชื้นเฉลี่ย (%)</th>
+      <div style={{ marginTop: "30px" }}>
+        <h3>⏰ สรุปตามช่วงเวลา (07:00–17:00)</h3>
+        <table
+          border="1"
+          cellPadding="5"
+          style={{ borderCollapse: "collapse", width: "100%", fontSize: "14px" }}
+        >
+          <thead>
+            <tr style={{ backgroundColor: "#f0f0f0" }}>
+              <th>ช่วงเวลา</th>
+              <th>จำนวนฝนตก (ครั้ง)</th>
+              <th>อุณหภูมิเฉลี่ย (°C)</th>
+              <th>ความชื้นเฉลี่ย (%)</th>
             </tr>
           </thead>
           <tbody>
             {timeSlotSummary.map((slot, i) => (
-              <tr key={i} className="border-t text-center">
-                <td className="p-2">{slot.label}</td>
-                <td className="p-2">{slot.count}</td>
-                <td className="p-2">{slot.avgTemp}</td>
-                <td className="p-2">{slot.avgHum}</td>
+              <tr key={i}>
+                <td>{slot.label}</td>
+                <td>{slot.count}</td>
+                <td>{slot.avgTemp}</td>
+                <td>{slot.avgHum}</td>
               </tr>
             ))}
           </tbody>
@@ -246,21 +282,17 @@ function Dashboard({ initialData }) {
       </div>
 
       {/* QR Code */}
-      <div className="text-center mt-10">
-        <h3 className="font-semibold mb-3">📱 สแกน QR Code เพื่อเปิดบนมือถือ</h3>
-        <div className="inline-block bg-white p-4 rounded-xl shadow">
-          <QRCodeCanvas
-            value="https://rain-frontend.onrender.com"
-            size={200}
-            fgColor="#000000"
-            bgColor="#ffffff"
-            level="H"
-            includeMargin={true}
-          />
-        </div>
-        <p className="mt-2 text-gray-600">
-          สแกนเพื่อดู Dashboard และเปิดการแจ้งเตือน
-        </p>
+      <div style={{ textAlign: "center", marginTop: "30px" }}>
+        <h3>📱 สแกน QR Code เพื่อเปิดบนมือถือ</h3>
+        <QRCodeCanvas
+          value="https://rain-frontend.onrender.com"
+          size={200}
+          fgColor="#000000"
+          bgColor="#ffffff"
+          level="H"
+          includeMargin={true}
+        />
+        <p>สแกนเพื่อดู Dashboard และเปิดการแจ้งเตือน</p>
       </div>
     </div>
   );
